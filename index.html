@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PartyPOS - Event Control Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Chart.js para Dashboard Circular -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SheetJS para Exportación a Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <style>
+    :root {
+      --bg-dark: #0a0814;
+      --sidebar-bg: #110d22;
+      --card-bg: rgba(23, 18, 43, 0.7);
+      --input-bg: #1c1635;
+      --border-color: #2e2452;
+      --accent-gradient: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      --btn-gradient: linear-gradient(90deg, #9333ea, #db2777);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --green-glow: #22c55e;
+      --red-glow: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); display: flex; min-height: 100vh; }
+
+    .sidebar { width: 280px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); padding: 24px 16px; display: flex; flex-direction: column; gap: 20px; flex-shrink: 0; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon { width: 42px; height: 42px; background: var(--accent-gradient); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
+    .brand-text h1 { font-size: 20px; font-weight: 700; }
+    .brand-text span { font-size: 11px; color: var(--text-muted); }
+
+    .nav-menu { display: flex; flex-direction: column; gap: 8px; list-style: none; }
+    .nav-btn { width: 100%; background: transparent; border: 1px solid transparent; color: var(--text-muted); padding: 12px 16px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; text-align: left; }
+    .nav-btn.active { background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #fff; box-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
+
+    main { flex-grow: 1; padding: 24px; overflow-y: auto; width: 100%; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+
+    .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(10px); }
+    .card-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+
+    label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    input, select { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; color: #fff; font-size: 14px; outline: none; width: 100%; }
+
+    .btn-submit { width: 100%; background: var(--btn-gradient); color: white; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 12px; }
+    .btn-danger { background: linear-gradient(90deg, #dc2626, #ef4444); color: white; border: none; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .btn-excel { background: linear-gradient(90deg, #16a34a, #22c55e); color: white; border: none; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; text-align: center; }
+    .kpi-value { font-size: 24px; font-weight: 700; margin-top: 6px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    /* CONTENEDOR DE GRÁFICOS CIRCULARES */
+    .charts-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .chart-box { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 320px; }
+
+    .pos-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 16px; }
+    .pos-tab-btn { background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .pos-tab-btn.active { background: #9333ea; color: #fff; border-color: #a855f7; }
+
+    .table-responsive { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 500px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 13px; }
+    th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; padding: 16px; border-right: none; border-bottom: 1px solid var(--border-color); }
+      .nav-menu { flex-direction: row; overflow-x: auto; padding-bottom: 8px; }
+      .nav-btn { padding: 8px 12px; font-size: 12px; }
+      main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <h1>PARTYPOS</h1>
+        <span>HUB DE CONTROL</span>
+      </div>
+    </div>
+    <ul class="nav-menu">
+      <li><button class="nav-btn active" data-tab="0">📅 Evento & Hora</button></li>
+      <li><button class="nav-btn" data-tab="1">📊 Dashboard Circular</button></li>
+      <li><button class="nav-btn" data-tab="2">🎪 Puntos de Venta</button></li>
+      <li><button class="nav-btn" data-tab="3">🍹 Catálogo Productos</button></li>
+      <li><button class="nav-btn" data-tab="4">📈 Consolidado Total</button></li>
+      <li><button class="nav-btn" data-tab="5">⚙️ Sistema & Exportación</button></li>
+    </ul>
+  </aside>
+
+  <main>
+    <div class="header-bar">
+      <h2>Control Operativo de Eventos</h2>
+      <div id="live-banner" style="background: rgba(34, 197, 94, 0.1); border: 1px solid var(--green-glow); color: var(--green-glow); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+        📍 Esperando datos de intervención...
+      </div>
+    </div>
+
+    <!-- SECCIÓN 0: EVENTO -->
+    <section class="tab-content" style="display: block;">
+      <div class="card">
+        <div class="card-title">⏰ Datos de la Intervención y Apertura</div>
+        <form id="form-evento" class="form-grid">
+          <div class="form-group full">
+            <label>Nombre del Evento</label>
+            <input type="text" id="ev-nombre" value="Fiesta Epic Night 2026">
+          </div>
+          <div class="form-group">
+            <label>Lugar / Recinto de Intervención</label>
+            <input type="text" id="ev-lugar" value="Explanada Principal - Zona VIP">
+          </div>
+          <div class="form-group">
+            <label>Fecha de Intervención</label>
+            <input type="date" id="ev-fecha" value="2026-08-16">
+          </div>
+          <div class="form-group">
+            <label>Hora Oficial de Inicio</label>
+            <input type="time" id="ev-hora" value="21:00">
+          </div>
+          <div class="form-group">
+            <label>Supervisor Responsable</label>
+            <input type="text" id="ev-supervisor" value="Iban Jhordi Serrano">
+          </div>
+          <div class="form-group full">
+            <button type="submit" class="btn-submit">💾 Registrar Datos de Intervención</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 1: DASHBOARD CIRCULAR INTERACTIVO -->
+    <section class="tab-content" style="display: none;">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <span style="font-size: 12px; color: var(--text-muted);">Ventas Totales</span>
+          <div class="kpi-value" id="dash-ventas">S/ 0.00</div>
+        </div>
+        <div class="kpi-card">
+          <span style="font-size: 12px; color: var(--text-muted);">Productos Vendidos</span>
+          <div class="kpi-value" id="dash-unidades">0 Unids</div>
+        </div>
+        <div class="kpi-card">
+          <span style="font-size: 12px; color: var(--text-muted);">Punto Líder</span>
+          <div class="kpi-value" id="dash-top-punto" style="font-size: 16px;">Sin ventas</div>
+        </div>
+        <div class="kpi-card">
+          <span style="font-size: 12px; color: var(--text-muted);">Ticket Promedio</span>
+          <div class="kpi-value" id="dash-ticket">S/ 0.00</div>
+        </div>
+      </div>
+
+      <div class="charts-container">
+        <div class="chart-box">
+          <h4 style="margin-bottom: 12px; color: var(--text-muted);">📊 Distribución de Ventas por Punto</h4>
+          <canvas id="chartDoughnutPuntos"></canvas>
+        </div>
+        <div class="chart-box">
+          <h4 style="margin-bottom: 12px; color: var(--text-muted);">🍹 Productos más Vendidos</h4>
+          <canvas id="chartPieProductos"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 2: PUNTOS DE VENTA (1 AL 8) -->
+    <section class="tab-content" style="display: none;">
+      <div class="pos-tabs" id="pos-selector-container"></div>
+      <div class="card">
+        <div class="card-title" id="pos-active-title">🎪 Punto 1 - Registro de Venta</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Seleccionar Producto de la Carta</label>
+            <select id="pos-select-producto"></select>
+          </div>
+          <div class="form-group">
+            <label>Cantidad</label>
+            <input type="number" id="pos-input-cant" value="1" min="1">
+          </div>
+          <div class="form-group full">
+            <button class="btn-submit" id="btn-registrar-pos">🛒 Registrar Venta en este Punto</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🧾 Ventas Registradas en este Punto</div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr><th>HORA</th><th>PRODUCTO</th><th>CANT.</th><th>SUBTOTAL</th></tr>
+            </thead>
+            <tbody id="pos-tbody-ventas"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 3: CATÁLOGO DE PRODUCTOS -->
+    <section class="tab-content" style="display: none;">
+      <div class="card">
+        <div class="card-title">➕ Registrar Producto en Catálogo</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre del Producto / Trago</label>
+            <input type="text" id="cat-nombre" placeholder="Ej: Jaguer Sellada">
+          </div>
+          <div class="form-group">
+            <label>Categoría</label>
+            <select id="cat-categoria">
+              <option value="Licores">Licores</option>
+              <option value="Cocteles">Cocteles</option>
+              <option value="Cervezas">Cervezas</option>
+              <option value="Sin Alcohol">Sin Alcohol</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Precio Unitario (S/)</label>
+            <input type="number" id="cat-precio" placeholder="110">
+          </div>
+          <div class="form-group full">
+            <button class="btn-submit" id="btn-guardar-catalogo">🪄 Guardar Producto en la Carta</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📜 Catálogo Activo de Precios</div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr><th>CÓDIGO</th><th>PRODUCTO</th><th>CATEGORÍA</th><th>PRECIO</th><th>ACCIONES</th></tr>
+            </thead>
+            <tbody id="cat-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 4: CONSOLIDADO TOTAL -->
+    <section class="tab-content" style="display: none;">
+      <div class="card">
+        <div class="card-title">📌 Desglose Individual por Punto de Venta</div>
+        <div id="consolidado-puntos-container"></div>
+      </div>
+      <div class="card" style="border: 1px solid #a855f7;">
+        <div class="card-title" style="color: #a855f7;">🧮 Sumatoria Global por Producto</div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr><th>PRODUCTO</th><th>CANTIDAD TOTAL VENDIDA</th><th>TOTAL ACUMULADO (S/)</th></tr>
+            </thead>
+            <tbody id="consolidado-global-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 5: SISTEMA, RESET Y EXPORTACIÓN A EXCEL -->
+    <section class="tab-content" style="display: none;">
+      <div class="card">
+        <div class="card-title">📥 Exportación de Auditoría</div>
+        <p style="color: var(--text-muted); margin-bottom: 16px;">Descarga la información completa acumulada en formato de hoja de cálculo.</p>
+        <button class="btn-excel" onclick="App.exportarExcel()">📊 Descargar Auditoría en Excel (.xlsx)</button>
+      </div>
+
+      <div class="card" style="border: 1px solid var(--red-glow);">
+        <div class="card-title" style="color: var(--red-glow);">⚠️ Zona de Peligro</div>
+        <p style="color: var(--text-muted); margin-bottom: 16px;">Elimina permanentemente las ventas, catálogo y configuración del evento de la memoria local.</p>
+        <button class="btn-danger" onclick="App.resetearSistema()">🗑️ Borrar Todos los Datos del Sistema</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
